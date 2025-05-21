@@ -14,6 +14,7 @@ using System.Windows.Data;
 using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Media.Animation;
 using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
 using System.Windows.Shapes;
@@ -23,25 +24,86 @@ namespace RefreshToAccess
     public partial class MainWindow : Window
     {
         int tokenType = 0;
-        public static int riseLauncherCount = 0;
-        public static string profileName = "Waiting for login...";
-        public static string playerUuid = "Waiting for login...";
-        public static string accessToken = "";
+        public static string profileName { get; set; } = "Waiting for login...";
+        public static string playerUuid { get; set; } = "Waiting for login...";
+        public static string accessToken { get; set; } = "";
+        public static bool loggedIn = false;
+
         public MainWindow()
         {
             InitializeComponent();
             tokenIsLunar.IsChecked=true;
         }
 
+        private void UpFloat_ShowLabel(string text)
+        {
+            Indicator.Content= text;
+            Indicator.RenderTransform=new TranslateTransform(0, 10);
+            Indicator.Opacity= 0;
+            FrameworkElement notifyLabelElement = Indicator;
+            TranslateTransform notifyLabelTransform = (TranslateTransform)Indicator.RenderTransform;
+            DoubleAnimation animationTranslateFloatUp = new DoubleAnimation(0, TimeSpan.FromSeconds(0.4))
+            {
+                EasingFunction = new PowerEase()
+                {
+                    EasingMode = EasingMode.EaseOut,
+                    Power=5
+                }
+            };
+            DoubleAnimation animationOpacityFull = new DoubleAnimation(1, TimeSpan.FromSeconds(0.3))
+            {
+                EasingFunction = new PowerEase()
+                {
+                    EasingMode = EasingMode.EaseOut,
+                    Power=2
+                }
+            };
+            notifyLabelElement.BeginAnimation(Label.OpacityProperty, animationOpacityFull);
+            notifyLabelTransform.BeginAnimation(TranslateTransform.YProperty, animationTranslateFloatUp);
+        }
+        private void UpFloat_HideLabel()
+        {
+            Indicator.RenderTransform=new TranslateTransform(0, 0);
+            Indicator.Opacity= 1;
+            FrameworkElement notifyLabelElement = Indicator;
+            TranslateTransform notifyLabelTransform = (TranslateTransform)Indicator.RenderTransform;
+            DoubleAnimation animationTranslateFloatUp = new DoubleAnimation(-10, TimeSpan.FromSeconds(0.4))
+            {
+                EasingFunction = new PowerEase()
+                {
+                    EasingMode = EasingMode.EaseOut,
+                    Power=5
+                }
+            };
+            DoubleAnimation animationOpacityFull = new DoubleAnimation(0, TimeSpan.FromSeconds(0.3))
+            {
+                EasingFunction = new PowerEase()
+                {
+                    EasingMode = EasingMode.EaseOut,
+                    Power=2
+                }
+            };
+            notifyLabelElement.BeginAnimation(Label.OpacityProperty, animationOpacityFull);
+            notifyLabelTransform.BeginAnimation(TranslateTransform.YProperty, animationTranslateFloatUp);
+        }
+
+        public async void swapLabelText(string text)
+        {
+            UpFloat_HideLabel();
+            await Task.Delay(300);
+            UpFloat_ShowLabel(text);
+        }
+
         private async void Button_Click(object sender, RoutedEventArgs e)
         {
+            loggedIn=false;
+            swapLabelText("Logging in...");
             try
             {
-                if (RefreshBox.Text==""||RefreshBox.Text=="Your RefreshToken here...")
+                if (RefreshBox.Text=="")
                 {
                     throw new Exception("You didn't input your refresh token");
                 }
-                Indicator.Content="Logging in...";
                 string[] AccProfile = { "null", "null", "null" };
                 switch (tokenType)
                 {
@@ -69,11 +131,17 @@ namespace RefreshToAccess
                 IGNBox.Text=profileName;
                 playerUuid=uuid;
                 UUIDBox.Text=playerUuid;
-                Indicator.Content="Login successful";
+                swapLabelText("Login successful");
                 accessToken=token;
                 AccessBox.Text=token;
-                Clipboard.SetText(AccessBox.Text);
-                MessageBox.Show("Successfully logged in\nPlayer profile name："+username+"\n"+"Player uuid: "+uuid+"\n\n"+"AccessToken copied to your clipboard");
+                string Message = "Successfully logged in\nPlayer profile name："+username+"\n"+"Player uuid: "+uuid;
+                if (AccTokenCopy.IsChecked==true)
+                {
+                    Clipboard.SetText(AccessBox.Text);
+                    Message+="\n\n"+"AccessToken copied to your clipboard";
+                }
+                MessageBox.Show(Message, "Success");
+                loggedIn=true;
                 GC.Collect();
             }
             catch (Exception ex)
@@ -99,7 +167,7 @@ namespace RefreshToAccess
                 {
                     MessageBox.Show("Something went wrong...\n\n"+ex.Message);
                 }
-                Indicator.Content="Error";
+                swapLabelText("Failed to login");
                 GC.Collect();
             }
         }
@@ -117,7 +185,6 @@ namespace RefreshToAccess
             tokenIsElse.IsChecked=false;
         }
 
-
         private void tokenIsElse_Checked(object sender, RoutedEventArgs e)
         {
             tokenType= 2;
@@ -125,39 +192,6 @@ namespace RefreshToAccess
             tokenIsHmcl.IsChecked=false;
         }
 
-        private void Button_Click_1(object sender, RoutedEventArgs e)
-        {
-            Clipboard.SetText(AccessBox.Text);
-        }
-
-        private void RefreshBox_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
-        {
-            if (RefreshBox.Text=="Your RefreshToken here...")
-            {
-                RefreshBox.Text="";
-            }
-        }
-        private void RefreshBox_MouseLeave(object sender, MouseEventArgs e)
-        {
-            if (RefreshBox.Text=="")
-            {
-                RefreshBox.Text="Your RefreshToken here...";
-            }
-        }
-        private void AccessBox_MouseLeftButtonDown(object sender, RoutedEventArgs e)
-        {
-            if (AccessBox.Text=="Your AccessToken will be here...")
-            {
-                AccessBox.Text="";
-            }
-        }
-        private void AccessBox_MouseLeave(object sender, MouseEventArgs e)
-        {
-            if (AccessBox.Text=="")
-            {
-                AccessBox.Text="Your AccessToken will be here...";
-            }
-        }
         private void IGNBox_TextChanged(object sender, TextChangedEventArgs e)
         {
             if (!(IGNBox.Text==profileName))
@@ -165,12 +199,18 @@ namespace RefreshToAccess
                 IGNBox.Text=profileName;
             }
         }
+
         private void UUIDBox_TextChanged(object sender, TextChangedEventArgs e)
         {
             if (!(UUIDBox.Text==playerUuid))
             {
                 UUIDBox.Text=playerUuid;
             }
+        }
+
+        private void Button_Click_1(object sender, RoutedEventArgs e)
+        {
+            Clipboard.SetText(AccessBox.Text);
         }
         private void Button_Click_2(object sender, RoutedEventArgs e)
         {
@@ -183,6 +223,19 @@ namespace RefreshToAccess
         private void Button_Click_4(object sender, RoutedEventArgs e)
         {
             Clipboard.SetText(playerUuid);
+        }
+
+        private void EditPfName(object sender, RoutedEventArgs e)
+        {
+            if (loggedIn)
+            {
+                IGNRenameWindow RenameWindow = new IGNRenameWindow();
+                RenameWindow.Show();
+            }
+            else
+            {
+                MessageBox.Show("Make sure you have generated a proper Access Token, or else this won't work");
+            }
         }
     }
 }

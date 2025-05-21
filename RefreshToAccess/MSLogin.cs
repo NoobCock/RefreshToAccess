@@ -19,15 +19,15 @@ namespace RefreshToAccess
 
         public static async Task<string[]> RequestTokenAsync(string token, ClientIdentification clientIdentification)
         {
-            mainWindow.Indicator.Content="Getting Microsoft Token...";
+            mainWindow.swapLabelText("Getting Microsoft Token");
             string microsoftTokenAndRefreshToken = await GetMicrosoftTokenFromRefreshTokenAsync(token, clientIdentification.Scope, clientIdentification.ClientId);
-            mainWindow.Indicator.Content="Getting Xbox Live Token...";
+            mainWindow.swapLabelText("Getting Xbox Live Token");
             string xBoxLiveToken = await XboxTokenAuthAsync(microsoftTokenAndRefreshToken, clientIdentification != ClientIdentification.Vanilla);
-            mainWindow.Indicator.Content="Getting Xbox User Hash...";
+            mainWindow.swapLabelText("Getting Xbox User Hash");
             string[] xstsTokenAndHash = await XboxUserHashAsync(xBoxLiveToken);
-            mainWindow.Indicator.Content="Getting Access Token...";
+            mainWindow.swapLabelText("Getting Access Token");
             string accessToken = await GetAccessTokenAsync(xstsTokenAndHash[1], xstsTokenAndHash[0]);
-            mainWindow.Indicator.Content="Getting Player Profile...";
+            mainWindow.swapLabelText("Getting Player Profile");
             string[] profile = await GetProfileAsync(accessToken);
             return new string[] { profile[1], profile[0], accessToken };
         }
